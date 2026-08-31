@@ -2,7 +2,7 @@
 
 > The all-in-one shop hub for kirana/pasal stores — inventory, sales, digital khata, and an AI assistant that knows your shop.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-%F0%9F%9A%80-green?style=for-the-badge)](https://harmless-beep.github.io/kirana-smart-assistant/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-%F0%9F%9A%80-green?style=for-the-badge)](https://harmless-beep.github.io/kirana-smart-assistant-v2/)
 [![API Docs](https://img.shields.io/badge/API%20Docs-Swagger-blue?style=for-the-badge)](https://kirana-smart-assistant.onrender.com/docs)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
