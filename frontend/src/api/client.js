@@ -27,18 +27,10 @@ client.interceptors.request.use(config => {
 client.interceptors.response.use(
   res => res,
   err => {
-    // Only redirect to login on 401 if we're actually talking to our own
-    // backend AND the user was previously authenticated there.  When the
-    // frontend runs in localStorage-only mode (GitHub Pages without a
-    // backend account), the backend returns 401 but we should NOT nuke the
-    // local token or redirect — just let tryBackend fall back to localStorage.
-    if (err.response?.status === 401) {
-      const isNetworkError = err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED'
-      if (!isNetworkError && _backendAvailable !== false) {
-        localStorage.removeItem('kirana-token')
-        window.location.hash = '#/login'
-      }
-    }
+    // Do NOT redirect to login on 401 — tryBackend handles the
+    // fallback to localStorage for GitHub Pages users who registered
+    // locally (not on the Render backend).  Nuking the token here
+    // would break the local offline flow.
     return Promise.reject(err)
   }
 )
