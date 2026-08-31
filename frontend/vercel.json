@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "npm install",
+  "rewrites": [
+    {
+      "source": "/((?!assets/|favicon|manifest|sw|workbox).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
