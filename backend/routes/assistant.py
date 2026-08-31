@@ -13,12 +13,18 @@ from routes.auth import get_current_user_dep
 
 router = APIRouter()
 
-# Gemini (free tier) is the preferred provider — set GEMINI_API_KEY at
-# https://aistudio.google.com/apikey. OpenCode Zen remains as a fallback.
+# AI provider config — set at least one API key in Render env vars.
+# DeepSeek (primary) — works great for shop assistant use cases.
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash-vision-exp")
+DEEPSEEK_URL = os.getenv("DEEPSEEK_URL", "https://api.b.ai/v1/chat/completions")
+
+# Gemini (free tier) — fallback if DeepSeek is not configured.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
+# OpenCode Zen — last resort fallback.
 OPENCODE_ZEN_API_KEY = os.getenv("OPENCODE_ZEN_API_KEY", "")
 OPENCODE_ZEN_MODEL = os.getenv("OPENCODE_ZEN_MODEL", "mimo-v2.5")
 OPENCODE_ZEN_URL = "https://opencode.ai/zen/go/v1/chat/completions"
@@ -145,6 +151,34 @@ def _system_prompt(shop_context: str) -> str:
     )
 
 
+async def _call_deepseek(question: str, shop_context: str) -> str:
+    """Call DeepSeek API (primary provider)."""
+    system_prompt = _system_prompt(shop_context)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            DEEPSEEK_URL,
+            headers={
+                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": DEEPSEEK_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 500,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        answer = data["choices"][0]["message"]["content"].strip()
+        if not answer:
+            raise ValueError("Empty DeepSeek response")
+        return answer
+
+
 async def _call_gemini(question: str, shop_context: str) -> str:
     """Call Google's Gemini API (free tier)."""
     url = f"{GEMINI_URL}/{GEMINI_MODEL}:generateContent"
@@ -201,12 +235,11 @@ async def chat(
     if not _is_store_question(data.query):
         return AssistantResponse(answer="I can only help with this shop's products, stock, sales, Khata, and reports.")
 
-    if not (GEMINI_API_KEY or OPENCODE_ZEN_API_KEY):
+    if not (DEEPSEEK_API_KEY or GEMINI_API_KEY or OPENCODE_ZEN_API_KEY):
         return AssistantResponse(
             answer=(
                 "AI assistant is not configured yet. "
-                "Set the GEMINI_API_KEY (free tier) or OPENCODE_ZEN_API_KEY "
-                "environment variable to enable me.\n\n"
+                "Set the DEEPSEEK_API_KEY environment variable to enable me.\n\n"
                 "In the meantime, here's what I know about your shop:"
             ),
             data={"fallback": True},
@@ -215,8 +248,10 @@ async def chat(
     shop_context = _build_shop_context(current_user, db)
 
     try:
-        # Gemini free tier is preferred; OpenCode Zen is the fallback.
-        if GEMINI_API_KEY:
+        # DeepSeek is the primary provider; Gemini and OpenCode Zen are fallbacks.
+        if DEEPSEEK_API_KEY:
+            answer = await _call_deepseek(data.query, shop_context)
+        elif GEMINI_API_KEY:
             answer = await _call_gemini(data.query, shop_context)
         else:
             answer = await _call_mimo(data.query, shop_context)
