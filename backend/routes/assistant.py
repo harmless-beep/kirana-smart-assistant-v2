@@ -168,7 +168,7 @@ async def _call_deepseek(question: str, shop_context: str) -> str:
                     {"role": "user", "content": question},
                 ],
                 "temperature": 0.7,
-                "max_tokens": 500,
+                "max_tokens": 2000,
             },
         )
         resp.raise_for_status()

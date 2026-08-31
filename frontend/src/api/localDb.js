@@ -420,7 +420,7 @@ Do NOT write code, create programs, or help with tasks unrelated to running a sh
           { role: 'user', content: message },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 2000,
       }),
     })
 
