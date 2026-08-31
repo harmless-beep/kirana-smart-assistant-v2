@@ -371,7 +371,7 @@ export function localSettingsUpdate(data) {
   return { ...s, ...data }
 }
 
-const AI_API_URL = '/ai-api'
+const AI_API_URL = 'https://api.b.ai/v1'
 const AI_API_KEY = 'sk-2rf9gjh4nuwi52q522se4ysy7io61448'
 const AI_MODEL = 'deepseek-v4-flash-vision-exp'
 
@@ -407,6 +407,7 @@ Do NOT write code, create programs, or help with tasks unrelated to running a sh
 
   try {
     const response = await fetch(`${AI_API_URL}/chat/completions`, {
+      mode: 'cors',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
