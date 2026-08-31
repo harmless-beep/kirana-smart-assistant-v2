@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -20,10 +19,6 @@ import Reports from './pages/Reports'
 import Sales from './pages/Sales'
 import SalesHistory from './pages/SalesHistory'
 import Notifications from './pages/Notifications'
-
-// Loaded on demand so jcode-tools (and its global style injection) only
-// ships to users who actually open the demo.
-const JcodeDemo = lazy(() => import('./pages/JcodeDemo'))
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -75,18 +70,6 @@ export default function App() {
 
         {/* Settings */}
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-
-        {/* JCode demo (lazy-loaded) */}
-        <Route
-          path="/jcode-demo"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingSpinner size="lg" text="Loading demo..." />}>
-                <JcodeDemo />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />

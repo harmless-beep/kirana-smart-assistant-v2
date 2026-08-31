@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -8,11 +7,6 @@ import { api } from '../api/client'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import PageHeader from '../components/PageHeader'
-
-// Warm the lazy-loaded JCode demo chunk before the user actually navigates,
-// so the demo page appears instantly. Dynamic imports are cached, so calling
-// this repeatedly (hover, focus, touch) is a no-op after the first fetch.
-const preloadJcodeDemo = () => import('./JcodeDemo').catch(() => {})
 
 export default function Settings() {
   const { user, logout, updateUser } = useAuth()
@@ -140,27 +134,18 @@ export default function Settings() {
       </Card>
 
       {/* About */}
-      <Link
-        to="/jcode-demo"
-        className="block"
-        onMouseEnter={preloadJcodeDemo}
-        onFocus={preloadJcodeDemo}
-        onTouchStart={preloadJcodeDemo}
-      >
-        <Card className="mb-4 dark:bg-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
-              <Store size={20} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-800 dark:text-gray-200">Kirana Smart Assistant</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('version')} 1.0.0</p>
-              <p className="text-xs text-primary font-medium mt-0.5">Try the jcode-tools demo →</p>
-            </div>
-            <span className="text-xl" aria-hidden="true">🧡</span>
+      <Card className="mb-4 dark:bg-gray-800">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
+            <Store size={20} className="text-white" />
           </div>
-        </Card>
-      </Link>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-800 dark:text-gray-200">Kirana Smart Assistant</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('version')} 1.0.0</p>
+          </div>
+          <span className="text-xl" aria-hidden="true">🧡</span>
+        </div>
+      </Card>
 
       <button
         onClick={logout}

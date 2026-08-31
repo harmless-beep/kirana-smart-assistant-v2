@@ -1,0 +1,26 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    # Every 8 minutes — keeps Render free tier from sleeping (15 min timeout)
+    # 7 min safety buffer so it never accidentally sleeps
+    - cron: '*/8 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://kirana-smart-assistant.onrender.com/warmup || true)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend is alive!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Backend did not respond after 3 attempts"
+          exit 1

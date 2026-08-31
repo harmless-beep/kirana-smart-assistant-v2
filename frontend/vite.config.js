@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const API_URL = process.env.VITE_API_URL || ''
+
 export default defineConfig({
   base: process.env.GITHUB_ACTIONS ? '/kirana-smart-assistant/' : '/',
   plugins: [
@@ -19,5 +21,17 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/ai-api/, '/v1'),
       },
     },
-  }
+  },
+  // When deploying frontend separately (GitHub Pages) with a remote
+  // backend (Fly.io), rewrite /ai-api calls to go through the backend
+  // so CORS is handled server-side.
+  ...(API_URL ? {
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        },
+      },
+    },
+  } : {}),
 })
