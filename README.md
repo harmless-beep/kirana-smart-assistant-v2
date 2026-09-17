@@ -6,6 +6,16 @@
 [![API Docs](https://img.shields.io/badge/API%20Docs-Swagger-blue?style=for-the-badge)](https://kirana-smart-assistant.onrender.com/docs)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<br>
+
+<div align="center">
+  <video src="https://raw.githubusercontent.com/harmless-beep/kirana-smart-assistant-v2/main/docs/assets/launch-video.mp4" width="800" controls autoplay loop muted></video>
+</div>
+
+*Click to play the launch video*
+
+<br>
+
 Built for small shops in Nepal & India — so simple that a shop owner with almost no computer experience can use it after a few minutes. Runs on your phone, tablet, or computer as a mobile-first PWA.
 
 ---
