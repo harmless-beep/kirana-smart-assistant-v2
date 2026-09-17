@@ -9,10 +9,8 @@
 <br>
 
 <div align="center">
-  <video src="https://raw.githubusercontent.com/harmless-beep/kirana-smart-assistant-v2/main/docs/assets/launch-video.mp4" width="800" controls autoplay loop muted></video>
+  <img src="docs/assets/launch-video.gif" width="800" alt="Kirana Smart Assistant launch video demo">
 </div>
-
-*Click to play the launch video*
 
 <br>
 
