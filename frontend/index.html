@@ -8,11 +8,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-touch-icon" href="/favicon.svg" />
-    <meta name="description" content="Smart assistant for kirana/pasal shop owners" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="description" content="Simple shop management for kirana and pasal owners" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <title>Kirana Smart Assistant</title>
+    <title>Kirana Smart</title>
     <script>
       // GitHub Pages SPA redirect handler
       (function(l) {
@@ -30,19 +31,10 @@
   <body>
     <div id="root"></div>
     <script>
-      // Retire the old PWA cache. It served stale builds after deployments.
+      // Keep the app shell available while the API is waking up and make the
+      // PWA eligible for the browser's install prompt.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', async () => {
-          const appScope = new URL('./', window.location.href).href
-          const registrations = await navigator.serviceWorker.getRegistrations()
-          await Promise.all(registrations
-            .filter(registration => registration.scope.startsWith(appScope))
-            .map(registration => registration.unregister()))
-          const cacheNames = await caches.keys()
-          await Promise.all(cacheNames
-            .filter(name => /workbox|precache|offlinecache/i.test(name))
-            .map(name => caches.delete(name)))
-        })
+        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'))
       }
     </script>
     <script type="module" src="/src/main.jsx"></script>

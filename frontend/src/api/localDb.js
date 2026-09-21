@@ -17,7 +17,6 @@ function withoutStoredPhoto(product) {
   if (!image.startsWith('data:')) return product
   return { ...product, image: '', image_path: '', imageStorageWarning: true }
 }
-
 function saveProductsSafely(products) {
   try {
     setStore('products', products)
@@ -371,77 +370,3 @@ export function localSettingsUpdate(data) {
   return { ...s, ...data }
 }
 
-const AI_API_URL = 'https://api.b.ai/v1'
-const AI_API_KEY = 'sk-2rf9gjh4nuwi52q522se4ysy7io61448'
-const AI_MODEL = 'deepseek-v4-flash-vision-exp'
-
-export async function localAssistantChat(message) {
-  const products = getStore('products').filter(p => p.user_id === userId())
-  const sales = getStore('sales').filter(s => s.user_id === userId())
-  const customers = getStore('customers').filter(c => c.user_id === userId())
-  const today = new Date().toISOString().slice(0, 10)
-  const todaySales = sales.filter(s => s.created_at?.startsWith(today))
-  const todayTotal = todaySales.reduce((sum, s) => sum + (s.total || 0), 0)
-
-  // Build shop context so the AI knows about the inventory
-  const shopContext = [
-    `Shop: ${getStore('settings').shop_name || 'My Shop'}`,
-    `Today's sales: Rs. ${todayTotal.toLocaleString()} from ${todaySales.length} orders`,
-    `Products (${products.length} total):`,
-    ...products.slice(0, 30).map(p => `  - ${p.name}: Rs.${p.price}, stock: ${p.quantity}, category: ${p.category || 'N/A'}`),
-    `Customers (${customers.length} total):`,
-    ...customers.slice(0, 15).map(c => `  - ${c.name} (${c.phone}): balance Rs.${c.balance || 0}`),
-  ].join('\n')
-
-  const hasDevanagari = /[\u0900-\u097F]/.test(message)
-  const systemPrompt = `You are Kirana AI — a smart shop assistant built for a small kirana/pasal (grocery) shop in Nepal. The shopkeeper speaks ${hasDevanagari ? 'Nepali' : 'English'}. Reply in the same language the user writes in.
-
-Here is the current shop data:\n${shopContext}\n\nYour job is to help the shopkeeper manage their shop. You can:
-- Answer questions about sales, profit, stock levels, customers, and credit balances using the shop data above.
-- Give advice on pricing, restocking, product selection, and shop management.
-- Do quick math for the shopkeeper (e.g. margins, quantities, totals).
-- Explain how to use features in the app.
-- Answer general knowledge questions that are useful to a shopkeeper (e.g. "what is GST?", "how to keep milk fresh longer?", "best way to organize shelves").
-
-Do NOT write code, create programs, or help with tasks unrelated to running a shop. Keep answers concise and practical. Use Rs. for amounts.`
-
-  try {
-    const response = await fetch(`${AI_API_URL}/chat/completions`, {
-      mode: 'cors',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
-    })
-
-    if (!response.ok) throw new Error(`AI API error: ${response.status}`)
-    const data = await response.json()
-    return data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.'
-  } catch (err) {
-    // Fallback to local keyword-based responses if AI is unreachable
-    const msg = message.toLowerCase()
-    if (msg.includes('profit') || msg.includes('नाफा')) {
-      const totalCost = todaySales.reduce((sum, s) => sum + (s.total_cost ?? (s.profit != null ? s.total - s.profit : s.total * 0.7) ?? 0), 0)
-      return `Today's profit: Rs. ${(todayTotal - totalCost).toLocaleString()}`
-    }
-    if (msg.includes('low') || msg.includes('stock') || msg.includes('घट्दै')) {
-      const low = products.filter(p => p.quantity <= (p.lowStockLimit ?? p.low_stock ?? 5))
-      if (low.length === 0) return 'All products are well stocked!'
-      return `Low stock items:\n${low.map(p => `• ${p.name}: ${p.quantity} left`).join('\n')}`
-    }
-    if (msg.includes('hello') || msg.includes('hi') || msg.includes('नमस्ते')) {
-      return 'Hello! I can help with sales, stock, customers, and profits. What would you like to know?'
-    }
-    return `I had trouble reaching the AI server. Here's what I know locally:\n• Today's sales: Rs. ${todayTotal.toLocaleString()}\n• Products: ${products.length}\n• Customers: ${customers.length}\n\nPlease try again in a moment.`
-  }
-}

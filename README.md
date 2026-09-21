@@ -1,37 +1,56 @@
-# 🏪 Kirana Smart Assistant
+# 🏪 Kirana Smart
 
-> The all-in-one shop hub for kirana/pasal stores — inventory, sales, digital khata, and an AI assistant that knows your shop.
+Smart shop management for kirana/pasal stores in Nepal and India.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-%F0%9F%9A%80-green?style=for-the-badge)](https://harmless-beep.github.io/kirana-smart-assistant/)
-[![API Docs](https://img.shields.io/badge/API%20Docs-Swagger-blue?style=for-the-badge)](https://kirana-smart-assistant.onrender.com/docs)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+A mobile-first Progressive Web App (PWA) designed so simple that a shop owner with almost no computer knowledge can use it after only a few minutes.
 
-Built for small shops in Nepal & India — so simple that a shop owner with almost no computer experience can use it after a few minutes. Runs on your phone, tablet, or computer as a mobile-first PWA.
+## 🌐 Live Demo (verified working)
 
----
+The project is fully deployed and running end-to-end:
+
+| Component | URL |
+|-----------|-----|
+| **Frontend (PWA)** | https://harmless-beep.github.io/kirana-smart-assistant/ |
+| **Backend API** | https://kirana-smart-assistant.onrender.com |
+| **API Docs (Swagger UI)** | https://kirana-smart-assistant.onrender.com/docs |
+
+> ⚠️ The backend runs on Render's **free tier**, so the first request after a period of inactivity can take ~30–50s (cold start). The frontend is built to automatically retry, so just wait a moment on first load.
+
+The free tier cannot be kept permanently awake without paying for hosting. To
+make that delay less visible, the app now wakes the API in the background as
+soon as the shell opens, uses an 8-second request timeout, and falls back to
+its offline local store while the service is waking up. No paid API or
+monitoring service is required.
 
 ## ✨ Features
 
-| Feature | What it does |
-|---|---|
-| 📦 **Inventory** | Add, edit, search & track products with categories and stock levels |
-| 💰 **Quick Sales** | Ring up a sale in seconds — auto-updates stock and profit |
-| 📒 **Digital Khata** | Track customer credit/debit (udhar) — see who owes you and when |
-| 🤖 **AI Assistant** | Ask "what's running low?" or "how much profit today?" in English or Nepali — answers from your real shop data |
-| 🏷️ **Barcodes** | Scan shelf barcodes to find products instantly |
-| 📊 **Dashboard** | Today's sales, profit, and recent activity at a glance |
-| 📄 **Reports** | Export sales/profit reports as PDF or Excel |
-| 🔔 **Notifications** | Alerts for low stock and unpaid dues |
-| 🌙 **Dark Mode** | Easy on the eyes, works in low light |
-| 📱 **PWA** | Install on your phone like an app, works offline |
-| 👆 **Pull-to-Refresh** | Pull down on Products and Khata pages to refresh data |
-| 📳 **Haptic Feedback** | Subtle vibration on button presses for a native feel |
+- **Digital Khata** — Customer credit management with timeline view
+- **Shop Tools** — fast checks for low stock, expiring products, overdue credit, and today's totals
+- **Product Search** — Find products by brand, color, size, or partial name
+- **Quick Sales** — Complete sales in 2 taps
+- **Inventory Management** — Products with images, barcodes, expiry tracking
+- **Dashboard** — Today's sales, profit, alerts at a glance
+- **Reports** — Daily, weekly, monthly with PDF/Excel export
+- **Barcode Support** — Generate and scan barcodes
+- **Notifications** — Low stock, expiring products, unpaid credits
+- **PWA** — Works offline on Android phones (localStorage fallback)
+- **Dark Mode** — Easy on the eyes at night
+- **Data persistence** — All shops, products, customers, and sales are saved to PostgreSQL and survive logout / app restart
 
----
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React + Vite + Tailwind CSS (PWA via Vite Plugin PWA + Workbox) |
+| Backend | FastAPI (Python) |
+| Database | PostgreSQL (Render Postgres / Supabase compatible) |
+| Auth | JWT (`python-jose` + `passlib[bcrypt]`) |
+| Frontend Hosting | GitHub Pages (auto-deploy via GitHub Actions) |
+| Backend Hosting | Render (auto-deploy from this repo) |
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (one command)
+### Option 1: Docker (Recommended for local)
 
 ```bash
 git clone https://github.com/harmless-beep/kirana-smart-assistant.git
@@ -39,17 +58,17 @@ cd kirana-smart-assistant
 docker-compose up
 ```
 
-Then open **http://localhost:8000** — done. 🎉
+Open http://localhost:8000
 
-### Option 2: Manual setup
+### Option 2: Manual Setup
 
 **Backend:**
 ```bash
 cd backend
 python -m venv venv
-# Windows:
+# Windows
 venv\Scripts\activate
-# macOS/Linux:
+# macOS/Linux
 source venv/bin/activate
 
 pip install -r requirements.txt
@@ -63,94 +82,104 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173** for the app, **http://localhost:8000/docs** for the API.
+Frontend: http://localhost:5173
+Backend API: http://localhost:8000/docs
 
-> ⚠️ **No database? No problem.** Leave `DATABASE_URL` empty and it falls back to a local SQLite file — zero setup for trying it out.
+## 🔧 Environment Variables
 
----
+Copy `.env.example` to `.env` in the backend directory. For the live deployment these are set in the Render dashboard (Environment section).
 
-## 🔑 Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | — |
+| `JWT_SECRET_KEY` | JWT signing secret — use a long random string (see below) | dev fallback |
+| `ALGORITHM` | JWT algorithm | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes | `10080` (7 days) |
+| `CORS_ORIGINS` | Comma-separated allowed origins | localhost + `https://harmless-beep.github.io` |
 
-Copy `.env.example` to `.env` in the backend directory, then fill in what you need:
+Generate a strong `JWT_SECRET_KEY` with:
+```bash
+openssl rand -base64 64
+```
 
-| Variable | Required? | What it's for |
-|---|---|---|
-| `DATABASE_URL` | Optional | PostgreSQL connection string. Empty = SQLite fallback |
-| `JWT_SECRET_KEY` | **Yes (prod)** | Signing key for logins. Generate: `openssl rand -base64 64` |
-| `AI_API_KEY` | Optional | AI assistant (DeepSeek endpoint, or Gemini/OpenCode Zen) |
+> In production, **always** set `JWT_SECRET_KEY` to a unique random value. If it is left unset, the backend falls back to an insecure development secret.
 
-> 🔒 **Security:** Never commit a real `.env` file — it's gitignored. In production, set these in your hosting dashboard instead.
+## 🧰 Shop Tools
 
----
-
-## 🤖 AI Assistant (optional)
-
-The Smart Assistant answers questions like *"what's expiring soon?"* or *"how should I price rice?"* using your shop's actual data. It works in English and Nepali.
-
-- **Without a key:** works in a basic offline mode with keyword matching
-- **With a key:** full AI answers powered by DeepSeek
-
-To enable: set `AI_API_KEY` in your environment, restart the backend.
-
----
-
-## 🧱 Tech Stack
-
-**Frontend:** React 19 · Vite 8 · Tailwind CSS 4 · React Router · PWA
-**Backend:** FastAPI · SQLAlchemy · PostgreSQL · SQLite fallback · JWT Auth
-**AI:** DeepSeek (custom endpoint) · Gemini / OpenCode Zen (fallback)
-**Reports:** PDF + Excel export
-**Deploy:** Docker · GitHub Actions · Render · GitHub Pages
-
----
+The app no longer depends on an AI assistant. The Tools screen gives shop
+owners practical, instant actions: today's sales and profit, low-stock items,
+expiring products, overdue customer credit, new sale, add product, add customer,
+and sales history. These checks also work with the local offline data store.
 
 ## 📁 Project Structure
 
 ```
 kirana-smart-assistant/
-├── frontend/          # React PWA
+├── frontend/              # React PWA
 │   ├── src/
-│   │   ├── components/  # Reusable UI (BottomNav, Modal, Button, etc.)
-│   │   ├── pages/       # App pages (Home, Sales, Products, Khata, etc.)
-│   │   ├── context/     # Auth & theme
-│   │   ├── hooks/       # Custom hooks (usePullToRefresh, usePolling)
-│   │   ├── utils/       # Helpers (haptics, etc.)
-│   │   └── api/         # API client (offline fallback)
-│   └── public/          # PWA manifest & icons
-├── backend/           # FastAPI server
-│   ├── routes/        # API endpoints
-│   ├── models/        # Database models
-│   ├── schemas/       # Validation
-│   └── main.py        # Entry point
-├── database/          # SQL schema
-├── docs/              # Guides & screenshots
-└── docker-compose.yml # One-command setup
+│   │   ├── components/    # Reusable UI components
+│   │   ├── pages/         # Page components
+│   │   ├── context/       # Auth & Theme context
+│   │   ├── api/           # API client (with offline fallback)
+│   │   └── App.jsx        # Router & layout
+│   └── public/            # PWA manifest, icons
+├── backend/               # FastAPI server
+│   ├── routes/            # API route handlers
+│   ├── models/            # SQLAlchemy models
+│   ├── schemas/           # Pydantic schemas
+│   ├── main.py            # App entry point
+│   └── database.py        # DB connection
+├── database/              # SQL schemas
+├── docs/                  # Documentation
+├── .github/workflows/     # GitHub Pages auto-deploy
+├── docker-compose.yml     # Docker setup
+├── render.yaml            # Render auto-config
+└── README.md              # This file
 ```
 
----
+## 📚 API Documentation
 
-## 📚 API Docs
+When the backend is running, visit:
+- **Swagger UI**: `/docs` (live: https://kirana-smart-assistant.onrender.com/docs)
+- **ReDoc**: `/redoc`
 
-Interactive Swagger UI when the backend is running: **/docs**
-
-Main endpoints: `/api/auth`, `/api/products`, `/api/customers`, `/api/sales`, `/api/dashboard`, `/api/reports`, `/api/assistant`, `/api/barcode`, `/api/notifications`, `/api/settings`
-
----
+Main endpoint groups: `/api/auth`, `/api/products`, `/api/customers`, `/api/sales`, `/api/dashboard`, `/api/reports`, `/api/barcode`, `/api/notifications`, `/api/settings`, `/health`.
 
 ## 🚢 Deployment
 
-- **Frontend** → GitHub Pages (auto-deploy on push, workflow included)
-- **Backend** → Render (free tier web service `kirana-smart-assistant`, manual deploy)
-- **Everything** → Docker (any VPS, `docker-compose.yml` included)
+### Install it as an actual app
 
-Full step-by-step: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) · Oracle Cloud: [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md)
+The frontend is an installable PWA. Open the deployed GitHub Pages URL in
+Chrome or Edge, then choose **Install app** (desktop) or **Add to Home screen**
+(Android). The manifest uses a relative start URL so the installed app opens
+correctly from the repository path, and the app continues to work with its
+local offline fallback when the backend is asleep or unavailable.
 
----
+### Frontend → GitHub Pages (current method)
 
-## 🤝 Contributing
+The repo includes `.github/workflows/deploy.yml`, which builds the frontend and publishes it to GitHub Pages on every push to `master`. The workflow sets `VITE_API_URL` to the Render backend automatically.
 
-Contributions welcome! Open an issue or submit a PR.
+1. Push to the `master` branch.
+2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. Wait for the "Deploy to GitHub Pages" workflow run (~40s).
+4. Live at `https://<user>.github.io/kirana-smart-assistant/`.
+
+No Vercel account required. (A Vercel alternative is documented in `docs/DEPLOYMENT.md`.)
+
+### Backend → Render
+
+1. Push to GitHub.
+2. render.com → **New Web Service** → connect this repo.
+3. Use `render.yaml` for auto-configuration (build `pip install -r backend/requirements.txt`, start `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`).
+4. Set `DATABASE_URL` and `JWT_SECRET_KEY` in the Environment section.
+5. Deploy — live at `https://kirana-smart-assistant.onrender.com`.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full details, the Oracle Cloud Docker path, and troubleshooting.
 
 ## 📄 License
 
-MIT — use it, learn from it, build on it.
+MIT License
+
+## 🤝 Contributing
+
+Contributions welcome! Please feel free to submit a Pull Request.

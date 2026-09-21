@@ -296,19 +296,6 @@ class TopProduct(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Assistant schemas
-# ---------------------------------------------------------------------------
-
-class AssistantQuery(BaseModel):
-    query: str
-
-
-class AssistantResponse(BaseModel):
-    answer: str
-    data: Optional[dict] = None
-
-
-# ---------------------------------------------------------------------------
 # Report export schemas
 # ---------------------------------------------------------------------------
 

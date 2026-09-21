@@ -45,27 +45,24 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center px-6">
       <button
         onClick={toggleLang}
-        className="fixed top-4 right-4 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-soft flex items-center gap-2 text-gray-700 dark:text-gray-200"
+        className="fixed top-4 right-4 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md flex items-center gap-2 text-gray-700 dark:text-gray-200"
       >
         <Globe size={20} />
         <span className="font-medium">{lang === 'en' ? 'नेपाली' : 'English'}</span>
       </button>
 
-      <div className="mb-4 sm:mb-6 text-center">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lift">
-          <Store size={32} className="text-white" />
+      <div className="mb-8 text-center">
+        <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
+          <Store size={40} className="text-white" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Kirana Smart</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-base sm:text-lg mt-1">{t('assistant')}</p>
-        <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1">
-          {lang === 'ne' ? 'तपाईंको पसल, सधैं तपाईंको हातमा' : 'Your shop, always in your pocket'}
-        </p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Kirana Smart</h1>
+        <p className="text-gray-500 dark:text-gray-400 text-lg mt-1">{t('shopManager')}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-lift p-5 sm:p-6 flex flex-col gap-3 sm:gap-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm flex flex-col gap-4">
         {isRegister && (
           <>
             <div>

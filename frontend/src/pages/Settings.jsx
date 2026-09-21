@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useLanguage } from '../context/LanguageContext'
-import { Store, Moon, Sun, Globe, LogOut, Settings as SettingsIcon } from 'lucide-react'
+import { Store, Moon, Sun, Globe, LogOut } from 'lucide-react'
 import { api } from '../api/client'
 import Button from '../components/Button'
 import Card from '../components/Card'
-import PageHeader from '../components/PageHeader'
 
 export default function Settings() {
   const { user, logout, updateUser } = useAuth()
@@ -33,27 +32,15 @@ export default function Settings() {
   }
 
   return (
-    <div className="px-3 sm:px-4 pt-4 sm:pt-6 pb-8 dark:bg-gray-900 min-h-screen">
-      <PageHeader
-        icon={SettingsIcon}
-        title={t('settings')}
-        subtitle={user?.shop_name || user?.shopName || user?.name}
-      />
+    <div className="px-4 pt-6 pb-8 dark:bg-gray-900 min-h-screen">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">{t('settings')}</h1>
 
-      {/* Shop profile */}
       <Card className="mb-4 dark:bg-gray-800">
-        <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-          <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Store size={22} className="text-primary" />
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Store size={20} className="text-primary" />
           </div>
-          <div>
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200 text-lg leading-tight">
-              {lang === 'ne' ? 'पसल जानकारी' : 'Shop details'}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {lang === 'ne' ? 'आफ्नो पसलको जानकारी मिलाउनुहोस्' : 'Keep your shop information up to date'}
-            </p>
-          </div>
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200 text-lg">{t('shopName')}</h2>
         </div>
         <div className="space-y-3">
           <div>
@@ -89,61 +76,52 @@ export default function Settings() {
         </div>
       </Card>
 
-      {/* Preferences: dark mode + language in one tidy card */}
-      <Card className="mb-4 dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
-        <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+      <Card className="mb-4 dark:bg-gray-800">
+        <button onClick={toggleDark} className="w-full flex items-center justify-between py-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
               {dark ? <Sun size={20} className="text-indigo-600 dark:text-indigo-400" /> : <Moon size={20} className="text-indigo-600" />}
             </div>
             <span className="font-medium text-gray-800 dark:text-gray-200">{t('darkMode')}</span>
           </div>
-          <button
-            type="button"
-            onClick={toggleDark}
-            aria-label={t('darkMode')}
-            className={`w-12 h-7 rounded-full transition-colors ${dark ? 'bg-primary' : 'bg-gray-300'} relative flex-shrink-0`}
-          >
+          <div className={`w-12 h-7 rounded-full transition-colors ${dark ? 'bg-primary' : 'bg-gray-300'} relative`}>
             <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
+          </div>
+        </button>
+      </Card>
+
+      <Card className="mb-4 dark:bg-gray-800">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <Globe size={20} className="text-green-600 dark:text-green-400" />
+          </div>
+          <span className="font-medium text-gray-800 dark:text-gray-200">{t('language')}</span>
         </div>
-        <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Globe size={20} className="text-green-600 dark:text-green-400" />
-            </div>
-            <span className="font-medium text-gray-800 dark:text-gray-200">{t('language')}</span>
-          </div>
-          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setLang('en')}
-              className={`px-3 h-8 rounded-lg font-medium text-sm transition-colors ${lang === 'en' ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-            >
-              {t('english')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLang('ne')}
-              className={`px-3 h-8 rounded-lg font-medium text-sm transition-colors ${lang === 'ne' ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-            >
-              {t('nepali')}
-            </button>
-          </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLang('en')}
+            className={`flex-1 h-12 rounded-xl font-medium text-base transition-colors ${lang === 'en' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+          >
+            {t('english')}
+          </button>
+          <button
+            onClick={() => setLang('ne')}
+            className={`flex-1 h-12 rounded-xl font-medium text-base transition-colors ${lang === 'ne' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+          >
+            {t('nepali')}
+          </button>
         </div>
       </Card>
 
-      {/* About */}
       <Card className="mb-4 dark:bg-gray-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
-            <Store size={20} className="text-white" />
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+            <span className="text-lg">🏪</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-800 dark:text-gray-200">Kirana Smart Assistant</p>
+          <div>
+            <p className="font-medium text-gray-800 dark:text-gray-200">Kirana Smart</p>
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('version')} 1.0.0</p>
           </div>
-          <span className="text-xl" aria-hidden="true">🧡</span>
         </div>
       </Card>
 

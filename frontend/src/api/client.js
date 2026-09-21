@@ -6,7 +6,7 @@ import {
   localCustomers, localCustomerCreate, localCustomerGet, localCustomerUpdate, localCustomerDelete, localCredits, localCreditAdd, localPaymentAdd,
   localDashboardSummary, localDashboardWeekly,
   localNotifications, localSettingsGet, localSettingsUpdate,
-  localAssistantChat, localCategories, localCategoryCreate, localCategoryUpdate, localCategoryDelete,
+  localCategories, localCategoryCreate, localCategoryUpdate, localCategoryDelete,
 } from './localDb'
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || ''
@@ -15,8 +15,33 @@ const API_URL = RAW_API_URL.replace(/\/+$/, '')
 const client = axios.create({
   baseURL: `${API_URL}/api`,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  // Render's free service can sleep. Keep the UI responsive while it wakes
+  // up and let the existing localStorage fallback serve the first screen.
+  timeout: 8000,
 })
+
+/**
+ * Wake the free-tier API without blocking React startup. A successful health
+ * check means the first real request is much less likely to hit a cold start;
+ * a failure is intentionally ignored because every API operation has a local
+ * fallback.
+ */
+export function warmBackend() {
+  if (!API_URL || _backendAvailable === false) return
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
+  fetch(`${API_URL}/health`, { signal: controller.signal, cache: 'no-store' })
+    .then(response => {
+      if (response.ok) {
+        _backendAvailable = true
+        _lastTimeoutAt = 0
+      }
+    })
+    .catch(() => {
+      // Offline mode is a supported path; don't surface a warm-up failure.
+    })
+    .finally(() => clearTimeout(timer))
+}
 
 client.interceptors.request.use(config => {
   const token = localStorage.getItem('kirana-token')
@@ -27,17 +52,11 @@ client.interceptors.request.use(config => {
 client.interceptors.response.use(
   res => res,
   err => {
-    // Only redirect to login on 401 if we're actually talking to our own
-    // backend AND the user was previously authenticated there.  When the
-    // frontend runs in localStorage-only mode (GitHub Pages without a
-    // backend account), the backend returns 401 but we should NOT nuke the
-    // local token or redirect — just let tryBackend fall back to localStorage.
     if (err.response?.status === 401) {
-      const isNetworkError = err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED'
-      if (!isNetworkError && _backendAvailable !== false) {
-        localStorage.removeItem('kirana-token')
-        window.location.hash = '#/login'
-      }
+      localStorage.removeItem('kirana-token')
+      // Keep the GitHub Pages project path intact. A root-relative redirect
+      // sends visitors to the account homepage instead of this app.
+      window.location.hash = '#/login'
     }
     return Promise.reject(err)
   }
@@ -45,8 +64,7 @@ client.interceptors.response.use(
 
 let _backendAvailable = null
 let _lastTimeoutAt = 0
-let _lastLocalFallbackAt = 0
-const RETRY_COOLDOWN_MS = 30000
+const RETRY_COOLDOWN_MS = 60000
 const DELETED_CUSTOMERS_KEY = 'kirana-deleted-customer-ids'
 
 const asList = data => Array.isArray(data) ? data : (data?.items || [])
@@ -94,6 +112,15 @@ function resolveImageUrl(path) {
   return API_URL ? new URL(path, API_URL).href : path
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Could not read the selected image'))
+    reader.readAsDataURL(file)
+  })
+}
+
 async function uploadProductImage(file) {
   // When the backend is unreachable or the upload route is missing,
   // do NOT embed a multi-MB base64 data URL as image_path -- that
@@ -102,10 +129,7 @@ async function uploadProductImage(file) {
   const localResult = async () => ({
     data: { image_path: null, storageWarning: true },
   })
-  // Same rule as tryBackend: only skip the network in production builds
-  // without an API URL (no proxy). Dev builds attempt the upload through
-  // the Vite `/api` proxy and fall back to "save without photo" on failure.
-  if ((!API_URL && import.meta.env.PROD) || (_backendAvailable === false && Date.now() - _lastLocalFallbackAt < RETRY_COOLDOWN_MS)) return localResult()
+  if (!API_URL || _backendAvailable === false) return localResult()
 
   try {
     const formData = new FormData()
@@ -287,238 +311,28 @@ async function adaptResponse(request, localFallback, transform = value => value)
   return { ...response, data: transform(response.data) }
 }
 
-// --- Offline → online sync queue -------------------------------------
-// Writes that happen while the backend is unreachable are saved locally AND
-// queued here, so they can be replayed against the backend the moment it is
-// reachable again. Ops replay in order; local (string) ids are mapped to
-// backend ids so later ops (updates, sales, khata entries) that reference
-// them keep working.
-const SYNC_QUEUE_KEY = 'kirana_sync_queue'
-const SYNC_ID_MAP_KEY = 'kirana_sync_id_map'
-
-function getSyncQueue() {
-  try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY)) || [] } catch { return [] }
-}
-function setSyncQueue(queue) {
-  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue))
-}
-function getSyncIdMap() {
-  try { return JSON.parse(localStorage.getItem(SYNC_ID_MAP_KEY)) || {} } catch { return {} }
-}
-function setSyncIdMap(map) {
-  localStorage.setItem(SYNC_ID_MAP_KEY, JSON.stringify(map))
-}
-function currentSyncOwner() {
-  return localStorage.getItem('kirana_current_user_id') || ''
-}
-function enqueueSync(op) {
-  const queue = getSyncQueue()
-  queue.push({
-    ...op,
-    id: `op_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-    owner: currentSyncOwner(),
-    queuedAt: new Date().toISOString(),
-  })
-  setSyncQueue(queue)
-}
-
-let _flushingSync = false
-let _syncRetryTimer = null
-
-function scheduleSyncRetry(delay = 20000) {
-  if (_syncRetryTimer) return
-  _syncRetryTimer = setTimeout(() => {
-    _syncRetryTimer = null
-    flushSyncQueue()
-  }, delay)
-}
-
-async function replaySyncOp(op) {
-  const map = getSyncIdMap()
-  const remoteId = id => map[id] || id
-  const recordId = op.payload?.id
-  try {
-    switch (`${op.entity}:${op.action}`) {
-      case 'product:create': {
-        const res = await client.post('/products', toApiProduct(op.payload))
-        const rid = res.data?.id
-        if (rid && recordId) { map[recordId] = rid; setSyncIdMap(map) }
-        return 'ok'
-      }
-      case 'product:update': {
-        const rid = remoteId(recordId)
-        if (!rid) return 'ok'
-        await client.put(`/products/${rid}`, toApiProduct(op.payload))
-        return 'ok'
-      }
-      case 'product:delete': {
-        const rid = remoteId(recordId)
-        if (rid) await client.delete(`/products/${rid}`)
-        if (recordId) { delete map[recordId]; setSyncIdMap(map) }
-        return 'ok'
-      }
-      case 'customer:create': {
-        const res = await client.post('/customers', op.payload)
-        const rid = res.data?.id
-        if (rid && recordId) { map[recordId] = rid; setSyncIdMap(map) }
-        return 'ok'
-      }
-      case 'customer:update': {
-        const rid = remoteId(recordId)
-        if (!rid) return 'ok'
-        // The local id is not part of the customer schema.
-        const rest = { ...op.payload }
-        delete rest.id
-        await client.put(`/customers/${rid}`, rest)
-        return 'ok'
-      }
-      case 'customer:delete': {
-        const rid = remoteId(recordId)
-        if (rid) {
-          try { await client.delete(`/customers/${rid}`) }
-          catch (err) { if (err.response?.status !== 404) throw err }
-        }
-        if (recordId) { delete map[recordId]; setSyncIdMap(map) }
-        return 'ok'
-      }
-      case 'sale:create': {
-        const queue = getSyncQueue()
-        const pendingProductIds = new Set(
-          queue
-            .filter(o => o.entity === 'product' && o.action === 'create')
-            .map(o => String(o.payload?.id))
-        )
-        const items = (op.payload.items || []).map(item => ({
-          product_id: remoteId(item.productId ?? item.product_id),
-          quantity: item.quantity,
-          unit_price: Number(item.price ?? item.unit_price ?? 0),
-        }))
-        // A sale referencing an offline-created product that has not synced
-        // yet waits for that product's create op (they are queued in order).
-        const waitingOn = items.some(item =>
-          !/^\d+$/.test(String(item.product_id)) && pendingProductIds.has(String(item.product_id)))
-        if (waitingOn) return 'retry'
-        await client.post('/sales', {
-          customer_id: op.payload.customerId || undefined,
-          payment_method: op.payload.paymentMethod || 'cash',
-          items,
-        })
-        return 'ok'
-      }
-      case 'credit:create': {
-        const rid = remoteId(op.payload.customerId)
-        if (!rid) return 'ok'
-        await client.post(`/customers/${rid}/credits`, {
-          amount: op.payload.amount,
-          notes: op.payload.notes,
-          entry_type: 'credit',
-        })
-        return 'ok'
-      }
-      case 'payment:create': {
-        const rid = remoteId(op.payload.customerId)
-        if (!rid) return 'ok'
-        await client.post(`/customers/${rid}/payments`, {
-          amount: op.payload.amount,
-          notes: op.payload.notes,
-        })
-        return 'ok'
-      }
-      default:
-        return 'ok'
-    }
-  } catch (err) {
-    const status = err.response?.status
-    const retryable = err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' ||
-      err.code === 'ECONNREFUSED' || (status && status >= 500)
-    if (retryable) return 'retry'
-    throw err
-  }
-}
-
-// Once an offline-created record has been pushed to the backend, remove its
-// local copy so it does not show twice (products are merged for display).
-function cleanupSyncedLocalRecords() {
-  const map = getSyncIdMap()
-  const localKeys = Object.keys(map).filter(key => !/^\d+$/.test(key))
-  if (localKeys.length === 0) return
-  try {
-    const products = JSON.parse(localStorage.getItem('kirana_products')) || []
-    const next = products.filter(p => !localKeys.includes(String(p.id)))
-    if (next.length !== products.length) {
-      localStorage.setItem('kirana_products', JSON.stringify(next))
-    }
-  } catch { /* keep the local copy if storage is unreadable */ }
-  localKeys.forEach(key => delete map[key])
-  setSyncIdMap(map)
-}
-
-export function flushSyncQueue() {
-  if (_flushingSync) return
-  if (!localStorage.getItem('kirana-token')) return
-  const owner = currentSyncOwner()
-  const queue = getSyncQueue().filter(op => !op.owner || op.owner === owner)
-  if (queue.length === 0) return
-  _flushingSync = true
-  ;(async () => {
-    let retry = false
-    try {
-      for (const op of queue) {
-        try {
-          const result = await replaySyncOp(op)
-          if (result === 'retry') { retry = true; break }
-          setSyncQueue(getSyncQueue().filter(item => item.id !== op.id))
-        } catch (err) {
-          // Non-retryable (duplicate, bad payload...): drop it so it can't
-          // stall the queue.
-          console.warn('Dropped queued sync op', op.entity, op.action, err?.response?.status || err?.message)
-          setSyncQueue(getSyncQueue().filter(item => item.id !== op.id))
-        }
-      }
-      cleanupSyncedLocalRecords()
-    } finally {
-      _flushingSync = false
-      if (retry) scheduleSyncRetry()
-    }
-  })()
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => flushSyncQueue())
-  // Recover from a previous offline session as soon as the app boots.
-  setTimeout(flushSyncQueue, 2500)
-}
-
 async function tryBackend(fn, localFn) {
-  // Mark every localStorage fallback so callers can queue offline writes
-  // for replay once the backend is reachable again.
-  const local = async () => {
+  // No API URL configured → localStorage only
+  if (!API_URL && localFn) {
     _backendAvailable = false
-    _lastLocalFallbackAt = Date.now()
-    const result = await localFn()
-    return { data: result, _local: true }
+    const result = localFn()
+    return { data: result }
   }
 
-  // A production build with no API URL is a plain static/offline page (no
-  // proxy) → localStorage only. In dev, an empty API_URL still routes
-  // through the Vite `/api` proxy to the local backend, so we attempt the
-  // call and only fall back to localStorage if it actually fails.
-  if (!API_URL && import.meta.env.PROD && localFn) return local()
+  if (_backendAvailable === false && localFn) {
+    const result = localFn()
+    return { data: result }
+  }
 
-  // After a network failure we stay local for a short cooldown, then
-  // automatically probe the backend again so the app reconnects on its
-  // own instead of requiring a page reload.
-  if (_backendAvailable === false && localFn && Date.now() - _lastLocalFallbackAt < RETRY_COOLDOWN_MS) return local()
-
-  if (_lastTimeoutAt && Date.now() - _lastTimeoutAt < RETRY_COOLDOWN_MS && localFn) return local()
+  if (_lastTimeoutAt && Date.now() - _lastTimeoutAt < RETRY_COOLDOWN_MS && localFn) {
+    const result = localFn()
+    return { data: result }
+  }
 
   try {
     const res = await fn()
     _backendAvailable = true
     _lastTimeoutAt = 0
-    _lastLocalFallbackAt = 0
-    // We're online again — push anything saved while offline.
-    flushSyncQueue()
     return res
   } catch (err) {
     const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout')
@@ -531,7 +345,10 @@ async function tryBackend(fn, localFn) {
       _backendAvailable = false
     }
 
-    if (localFn) return local()
+    if (localFn) {
+      const result = localFn()
+      return { data: result }
+    }
     throw err
   }
 }
@@ -566,17 +383,11 @@ export const api = {
       () => localProductGet(id),
       normalizeProduct,
     ),
-    create: async (data) => {
-      const response = await adaptResponse(
-        () => client.post('/products', toApiProduct(data)),
-        () => localProductCreate(data),
-        normalizeProduct,
-      )
-      if (response._local && response.data?.id) {
-        enqueueSync({ entity: 'product', action: 'create', payload: { ...data, id: response.data.id } })
-      }
-      return response
-    },
+    create: (data) => adaptResponse(
+      () => client.post('/products', toApiProduct(data)),
+      () => localProductCreate(data),
+      normalizeProduct,
+    ),
     uploadImage: async (file) => {
       const response = await uploadProductImage(file)
       const path = response.data?.image_path
@@ -591,34 +402,15 @@ export const api = {
         },
       }
     },
-    update: async (id, data) => {
-      let response
-      try {
-        response = await adaptResponse(
-          () => client.put(`/products/${id}`, toApiProduct(data)),
-          () => localProductUpdate(id, data),
-          normalizeProduct,
-        )
-      } catch (err) {
-        // Offline edit of a product that only exists on the backend (no
-        // local copy): queue the change instead of failing the save.
-        if (err?.response?.status === 404) {
-          response = { data: normalizeProduct({ ...data, id }), _local: true }
-        } else {
-          throw err
-        }
-      }
-      if (response._local) enqueueSync({ entity: 'product', action: 'update', payload: { ...data, id } })
-      return response
-    },
-    delete: async (id) => {
-      const response = await tryBackend(
-        () => client.delete(`/products/${id}`),
-        () => localProductDelete(id),
-      )
-      if (response._local) enqueueSync({ entity: 'product', action: 'delete', payload: { id } })
-      return response
-    },
+    update: (id, data) => adaptResponse(
+      () => client.put(`/products/${id}`, toApiProduct(data)),
+      () => localProductUpdate(id, data),
+      normalizeProduct,
+    ),
+    delete: (id) => tryBackend(
+      () => client.delete(`/products/${id}`),
+      () => localProductDelete(id),
+    ),
     search: (q) => tryBackend(
       () => client.get('/products/search', { params: { q } }),
       () => localProducts({ search: q }),
@@ -658,23 +450,19 @@ export const api = {
       () => localSalesGetAll(params),
       sales => asList(sales).map(normalizeSale),
     ),
-    create: async (data) => {
-      const response = await adaptResponse(
-        () => client.post('/sales', {
-          customer_id: data.customerId || undefined,
-          payment_method: data.paymentMethod || 'cash',
-          items: data.items.map(item => ({
-            product_id: item.productId ?? item.product_id,
-            quantity: item.quantity,
-            unit_price: Number(item.price ?? item.unit_price ?? 0),
-          })),
-        }),
-        () => localSalesCreate(data),
-        normalizeSale,
-      )
-      if (response._local) enqueueSync({ entity: 'sale', action: 'create', payload: data })
-      return response
-    },
+    create: (data) => adaptResponse(
+      () => client.post('/sales', {
+        customer_id: data.customerId || undefined,
+        payment_method: data.paymentMethod || 'cash',
+        items: data.items.map(item => ({
+          product_id: item.productId ?? item.product_id,
+          quantity: item.quantity,
+          unit_price: Number(item.price ?? item.unit_price ?? 0),
+        })),
+      }),
+      () => localSalesCreate(data),
+      normalizeSale,
+    ),
     getToday: () => tryBackend(
       () => client.get('/sales/today'),
       () => localTodaySales(),
@@ -714,33 +502,14 @@ export const api = {
       () => client.get(`/customers/${id}`),
       () => localCustomerGet(id),
     ),
-    create: async (data) => {
-      const response = await adaptResponse(
-        () => client.post('/customers', data),
-        () => localCustomerCreate(data),
-      )
-      if (response._local && response.data?.id) {
-        enqueueSync({ entity: 'customer', action: 'create', payload: { ...data, id: response.data.id } })
-      }
-      return response
-    },
-    update: async (id, data) => {
-      let response
-      try {
-        response = await adaptResponse(
-          () => client.put(`/customers/${id}`, data),
-          () => localCustomerUpdate(id, data),
-        )
-      } catch (err) {
-        if (err?.response?.status === 404) {
-          response = { data: { ...data, id }, _local: true }
-        } else {
-          throw err
-        }
-      }
-      if (response._local) enqueueSync({ entity: 'customer', action: 'update', payload: { ...data, id } })
-      return response
-    },
+    create: (data) => adaptResponse(
+      () => client.post('/customers', data),
+      () => localCustomerCreate(data),
+    ),
+    update: (id, data) => adaptResponse(
+      () => client.put(`/customers/${id}`, data),
+      () => localCustomerUpdate(id, data),
+    ),
     delete: async (id) => {
       try {
         const response = await client.delete(`/customers/${id}`)
@@ -750,8 +519,7 @@ export const api = {
         const status = err.response?.status
         if (status && status !== 404 && status !== 405 && status < 500) throw err
         markCustomerDeleted(id)
-        enqueueSync({ entity: 'customer', action: 'delete', payload: { id } })
-        return { data: localCustomerDelete(id), _local: true }
+        return { data: localCustomerDelete(id) }
       }
     },
     getCredits: (id) => adaptResponse(
@@ -759,24 +527,16 @@ export const api = {
       () => localCredits(id),
       credits => asList(credits).map(normalizeTransaction),
     ),
-    addCredit: async (id, data) => {
-      const response = await adaptResponse(
-        () => client.post(`/customers/${id}/credits`, { amount: data.amount, notes: data.notes, entry_type: 'credit' }),
-        () => localCreditAdd(id, data),
-        normalizeTransaction,
-      )
-      if (response._local) enqueueSync({ entity: 'credit', action: 'create', payload: { customerId: id, amount: data.amount, notes: data.notes } })
-      return response
-    },
-    addPayment: async (id, data) => {
-      const response = await adaptResponse(
-        () => client.post(`/customers/${id}/payments`, { amount: data.amount, notes: data.notes }),
-        () => localPaymentAdd(id, data),
-        normalizeTransaction,
-      )
-      if (response._local) enqueueSync({ entity: 'payment', action: 'create', payload: { customerId: id, amount: data.amount, notes: data.notes } })
-      return response
-    },
+    addCredit: (id, data) => adaptResponse(
+      () => client.post(`/customers/${id}/credits`, { amount: data.amount, notes: data.notes, entry_type: 'credit' }),
+      () => localCreditAdd(id, data),
+      normalizeTransaction,
+    ),
+    addPayment: (id, data) => adaptResponse(
+      () => client.post(`/customers/${id}/payments`, { amount: data.amount, notes: data.notes }),
+      () => localPaymentAdd(id, data),
+      normalizeTransaction,
+    ),
     getOverdue: () => tryBackend(
       () => client.get('/customers/overdue'),
       () => [],
@@ -837,18 +597,6 @@ export const api = {
       () => localNotifications(),
     ),
   },
-  assistant: {
-    chat: async (message) => {
-      const response = await tryBackend(
-        () => client.post('/assistant/chat', { query: message }),
-        () => localAssistantChat(message),
-      )
-      // Older hosted APIs return HTTP 200 while reporting that AI is not set
-      // up. Use the on-device shop helper until the server has its secret.
-      if (response.data?.data?.fallback) return { data: localAssistantChat(message) }
-      return response
-    },
-  },
   settings: {
     getAll: () => tryBackend(
       () => client.get('/settings'),
@@ -870,7 +618,6 @@ export const api = {
     ),
   },
   queueDeferredUpload,
-  flushSyncQueue,
 }
 
 export default client

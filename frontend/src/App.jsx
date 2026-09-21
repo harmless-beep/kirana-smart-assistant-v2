@@ -12,13 +12,14 @@ import Khata from './pages/Khata'
 import CustomerDetail from './pages/CustomerDetail'
 import CustomerForm from './pages/CustomerForm'
 import CreditForm from './pages/CreditForm'
-import Assistant from './pages/Assistant'
+import ShopTools from './pages/ShopTools'
 import Settings from './pages/Settings'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
 import Sales from './pages/Sales'
 import SalesHistory from './pages/SalesHistory'
 import Notifications from './pages/Notifications'
+import InstallPrompt from './components/InstallPrompt'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -65,8 +66,8 @@ export default function App() {
         <Route path="/khata/:id/credit" element={<ProtectedRoute><CreditForm /></ProtectedRoute>} />
         <Route path="/khata/:id/payment" element={<ProtectedRoute><CreditForm /></ProtectedRoute>} />
 
-        {/* Assistant */}
-        <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
+        {/* Shop tools (no AI dependency) */}
+        <Route path="/tools" element={<ProtectedRoute><ShopTools /></ProtectedRoute>} />
 
         {/* Settings */}
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -74,6 +75,7 @@ export default function App() {
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <InstallPrompt />
     </HashRouter>
   )
 }

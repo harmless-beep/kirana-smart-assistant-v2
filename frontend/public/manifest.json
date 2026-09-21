@@ -1,12 +1,14 @@
 {
-  "name": "Kirana Smart Assistant",
+  "name": "Kirana Smart",
   "short_name": "Kirana",
-  "description": "Smart assistant for kirana/pasal shop owners",
+  "description": "Simple shop management for kirana/pasal shop owners",
   "theme_color": "#16a34a",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
-  "start_url": "/",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "icons": [
     {
       "src": "/favicon.svg",

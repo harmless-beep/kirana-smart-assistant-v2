@@ -1,19 +1,35 @@
-// One-time retirement worker for the previous Workbox PWA.
-// It replaces the old cache-first worker, clears only this app's Workbox caches,
-// refreshes open app tabs, and then removes itself.
+const CACHE = 'kirana-shell-v1'
+
 self.addEventListener('install', event => {
-  event.waitUntil(self.skipWaiting())
+  event.waitUntil(caches.open(CACHE).then(cache => cache.add('./')))
+  self.skipWaiting()
 })
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const cacheNames = await caches.keys()
-    await Promise.all(cacheNames
-      .filter(name => /workbox|precache|offlinecache/i.test(name))
-      .map(name => caches.delete(name)))
+    const names = await caches.keys()
+    await Promise.all(names.filter(name => name !== CACHE).map(name => caches.delete(name)))
     await self.clients.claim()
-    const clients = await self.clients.matchAll({ type: 'window' })
-    await self.registration.unregister()
-    await Promise.all(clients.map(client => client.navigate(client.url)))
   })())
+})
+
+self.addEventListener('fetch', event => {
+  const request = event.request
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).then(response => {
+      caches.open(CACHE).then(cache => cache.put(request, response.clone()))
+      return response
+    }).catch(() => caches.match(request).then(cached => cached || caches.match('./'))))
+    return
+  }
+
+  event.respondWith(caches.match(request).then(cached => {
+    const update = fetch(request).then(response => {
+      if (response.ok) caches.open(CACHE).then(cache => cache.put(request, response.clone()))
+      return response
+    }).catch(() => cached)
+    return cached || update
+  }))
 })
