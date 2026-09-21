@@ -10,7 +10,7 @@ The project is fully deployed and running end-to-end:
 
 | Component | URL |
 |-----------|-----|
-| **Frontend (PWA)** | https://harmless-beep.github.io/kirana-smart-assistant/ |
+| **Frontend (PWA)** | https://harmless-beep.github.io/kirana-smart-assistant-v2/ |
 | **Backend API** | https://kirana-smart-assistant.onrender.com |
 | **API Docs (Swagger UI)** | https://kirana-smart-assistant.onrender.com/docs |
 
@@ -162,7 +162,7 @@ The repo includes `.github/workflows/deploy.yml`, which builds the frontend and 
 1. Push to the `master` branch.
 2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. Wait for the "Deploy to GitHub Pages" workflow run (~40s).
-4. Live at `https://<user>.github.io/kirana-smart-assistant/`.
+4. Live at `https://<user>.github.io/kirana-smart-assistant-v2/`.
 
 No Vercel account required. (A Vercel alternative is documented in `docs/DEPLOYMENT.md`.)
 
