@@ -4,6 +4,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
+!.env.firebase.example
 *.db
 dist/
 .vite/
@@ -12,3 +13,7 @@ venv/
 .DS_Store
 *.log
 uploads/
+service-account*.json
+firebase-adminsdk*.json
+kirana-snapshot*.json
+kirana-snapshot*.sha256

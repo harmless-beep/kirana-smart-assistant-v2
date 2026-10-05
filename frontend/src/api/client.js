@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { firebaseBackendEnabled } from '../firebase'
+import firebaseApi, { firebasePendingPhotoCount } from './firebaseApi'
 import {
   localAuth, localRegister, localGetMe, localUserUpdate,
   localProducts, localProductGet, localProductCreate, localProductUpdate, localProductDelete, localLowStock,
@@ -27,6 +29,7 @@ const client = axios.create({
  * fallback.
  */
 export function warmBackend() {
+  if (firebaseBackendEnabled) return
   if (!API_URL || _backendAvailable === false) return
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 8000)
@@ -110,15 +113,6 @@ function mergedCategories(remoteCategories) {
 function resolveImageUrl(path) {
   if (!path || path.startsWith('data:') || /^https?:\/\//i.test(path)) return path
   return API_URL ? new URL(path, API_URL).href : path
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(new Error('Could not read the selected image'))
-    reader.readAsDataURL(file)
-  })
 }
 
 async function uploadProductImage(file) {
@@ -353,7 +347,7 @@ async function tryBackend(fn, localFn) {
   }
 }
 
-export const api = {
+const renderApi = {
   auth: {
     login: (data) => tryBackend(
       () => client.post('/auth/login', data),
@@ -618,6 +612,14 @@ export const api = {
     ),
   },
   queueDeferredUpload,
+}
+
+export const api = firebaseBackendEnabled
+  ? firebaseApi
+  : { ...renderApi, firebaseMode: false }
+
+export function pendingUploadCountForActiveBackend() {
+  return firebaseBackendEnabled ? firebasePendingPhotoCount() : pendingUploadCount()
 }
 
 export default client

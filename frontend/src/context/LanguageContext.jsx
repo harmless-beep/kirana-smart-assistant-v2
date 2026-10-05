@@ -219,6 +219,7 @@ const translations = {
     maxStockReached: 'Only {count} available in stock',
     selectCustomerForCredit: 'Select a customer for a credit sale',
     saleSaveFailed: 'Could not complete the sale',
+    firebaseSaleNeedsInternet: 'Sale not saved. Connect to the internet and try again.',
     receipt: 'Receipt',
     printReceipt: 'Print receipt',
     startNewSale: 'Start new sale',
@@ -256,6 +257,7 @@ const translations = {
     sectionSaveFailed: 'Could not save the section',
     productSavedWithoutPhoto: 'Product saved. This device has no room to keep the photo.',
     productSavedPhotoUploading: 'Product saved. Photo will appear shortly once the server wakes up.',
+    productPhotoDeviceOnly: 'Product saved. Its photo is available only on this device.',
   },
   ne: {
     home: 'घर',
@@ -473,6 +475,7 @@ const translations = {
     maxStockReached: '\\u0938\\u094d\\u091f\\u0915\\u092e\\u093e \\u0915\\u0947\\u0935\\u0932 {count} \\u0909\\u092a\\u0932\\u092c\\u094d\\u0927 \\u091b',
     selectCustomerForCredit: '\\u0909\\u0927\\u093e\\u0930\\u094b \\u092c\\u093f\\u0915\\u094d\\u0930\\u0940\\u0915\\u093e \\u0932\\u093e\\u0917\\u093f \\u0917\\u094d\\u0930\\u093e\\u0939\\u0915 \\u091b\\u093e\\u0928\\u094d\\u0928\\u0941\\u0938',
     saleSaveFailed: '\\u092c\\u093f\\u0915\\u094d\\u0930\\u0940 \\u0938\\u092e\\u094d\\u092a\\u0928\\u094d\\u0928 \\u0917\\u0930\\u094d\\u0928 \\u0938\\u0915\\u093f\\u090f\\u0928',
+    firebaseSaleNeedsInternet: 'बिक्री सेभ भएन। इन्टरनेट जोडेर फेरि प्रयास गर्नुहोस्।',
     receipt: '\\u0930\\u0938\\u093f\\u0926',
     printReceipt: '\\u0930\\u0938\\u093f\\u0926 \\u092a\\u094d\\u0930\\u093f\\u0928\\u094d\\u091f \\u0917\\u0930\\u094d\\u0928\\u0941\\u0938',
     startNewSale: '\\u0928\\u092f\\u093e\\u0901 \\u092c\\u093f\\u0915\\u094d\\u0930\\u0940 \\u0938\\u0941\\u0930\\u0941 \\u0917\\u0930\\u094d\\u0928\\u0941\\u0938',
@@ -510,6 +513,7 @@ const translations = {
     sectionSaveFailed: '\\u0938\\u0947\\u0915\\u094d\\u0938\\u0928 \\u0938\\u0947\\u092d \\u0939\\u0941\\u0928 \\u0938\\u0915\\u0947\\u0928',
     productSavedWithoutPhoto: 'सामान सेभ भयो। यस यन्त्रमा फोटो राख्ने ठाउँ छैन।',
     productSavedPhotoUploading: 'सामान सेभ भयो। सर्भर ब्युँतिएपछि फोटो थोरै पछि देखिनेछ।',
+    productPhotoDeviceOnly: 'सामान सेभ भयो। यसको फोटो यही यन्त्रमा मात्र देखिन्छ।',
   }
 }
 

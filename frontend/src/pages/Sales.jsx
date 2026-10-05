@@ -122,7 +122,8 @@ export default function NewSale() {
       })
       setCompletedSale(response.data)
     } catch (err) {
-      setError(err.response?.data?.detail || t('saleSaveFailed'))
+      const offline = api.firebaseMode && ['unavailable', 'deadline-exceeded', 'network-request-failed'].includes(err.code)
+      setError(offline ? t('firebaseSaleNeedsInternet') : (err.response?.data?.detail || t('saleSaveFailed')))
     } finally {
       setSubmitting(false)
     }

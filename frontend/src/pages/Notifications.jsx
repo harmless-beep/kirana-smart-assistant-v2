@@ -11,6 +11,7 @@ const TYPE_CONFIG = {
   low_stock: { icon: AlertTriangle, color: 'bg-orange-100 text-orange-600', bg: 'bg-orange-50', label: 'lowStockAlert' },
   expiring: { icon: Clock, color: 'bg-red-100 text-red-600', bg: 'bg-red-50', label: 'expiringAlert' },
   credit_overdue: { icon: IndianRupee, color: 'bg-purple-100 text-purple-600', bg: 'bg-purple-50', label: 'creditOverdue' },
+  credit_due: { icon: IndianRupee, color: 'bg-purple-100 text-purple-600', bg: 'bg-purple-50', label: 'creditOverdue' },
   general: { icon: Bell, color: 'bg-blue-100 text-blue-600', bg: 'bg-blue-50', label: 'notifications' },
 }
 

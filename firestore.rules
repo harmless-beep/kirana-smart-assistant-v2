@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validShopRecord(userId) {
+      return signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == resource.data.id
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['migration_snapshot', 'legacy_user_id']);
+    }
+
+    function validNewShopRecord(userId, recordId) {
+      return signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == recordId
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id']);
+    }
+
+    match /profiles/{userId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.keys().hasAll(['id', 'phone', 'name'])
+        && request.resource.data.id == userId
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'owner')
+        && !request.resource.data.keys().hasAny(['password_hash', 'migration_snapshot', 'legacy_user_id']);
+      allow update: if signedInAs(userId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['id', 'password_hash', 'migration_snapshot', 'legacy_user_id', 'role']);
+      allow delete: if false;
+    }
+
+    match /users/{userId}/products/{productId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == productId
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id'])
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 0
+        && (request.resource.data.barcode is string || request.resource.data.barcode == null);
+      allow update: if validShopRecord(userId)
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 0;
+      allow delete: if signedInAs(userId);
+    }
+
+    match /users/{userId}/customers/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if validNewShopRecord(userId, recordId);
+      allow update: if validShopRecord(userId);
+      allow delete: if signedInAs(userId);
+    }
+
+    match /users/{userId}/categories/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if validNewShopRecord(userId, recordId);
+      allow update: if validShopRecord(userId);
+      allow delete: if signedInAs(userId);
+    }
+
+    match /users/{userId}/sales/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == recordId
+        && request.resource.data.total_amount is number
+        && request.resource.data.profit is number
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 100
+        && request.resource.data.payment_method in ['cash', 'credit', 'esewa', 'khalti', 'card', 'bank_transfer', 'other'];
+      allow update, delete: if false;
+    }
+
+    match /users/{userId}/sale_items/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == recordId
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id'])
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity > 0
+        && request.resource.data.unit_price is number
+        && request.resource.data.total_price is number;
+      allow update, delete: if false;
+    }
+
+    match /users/{userId}/credit_entries/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == recordId
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id']);
+      allow update: if validShopRecord(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['paid', 'remaining'])
+        && request.resource.data.paid >= resource.data.paid
+        && request.resource.data.remaining <= resource.data.remaining
+        && request.resource.data.remaining >= 0;
+      allow delete: if signedInAs(userId);
+    }
+
+    match /users/{userId}/notifications/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && request.resource.data.id == recordId
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id']);
+      allow update: if validShopRecord(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['is_read', 'read']);
+      allow delete: if false;
+    }
+
+    match /users/{userId}/settings/{recordId} {
+      allow read: if signedInAs(userId);
+      allow create: if validNewShopRecord(userId, recordId);
+      allow update: if validShopRecord(userId);
+      allow delete: if signedInAs(userId);
+    }
+
+    match /users/{userId}/barcodes/{barcodeId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && !request.resource.data.keys().hasAny(['migration_snapshot', 'legacy_user_id']);
+      allow update: if signedInAs(userId)
+        && request.resource.data.user_id == userId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['migration_snapshot', 'legacy_user_id']);
+      allow delete: if signedInAs(userId);
+    }
+
+    // Any collection without an explicit rule is denied by default. This
+    // includes legacy images; Spark stores them only in the old database.
+  }
+}

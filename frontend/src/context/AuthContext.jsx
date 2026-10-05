@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    api.auth.logout?.().catch(() => {})
     localStorage.removeItem('kirana-token')
     setToken(null)
     setUser(null)

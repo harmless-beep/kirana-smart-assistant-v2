@@ -62,6 +62,39 @@ export function localGetMe() {
   return { id: user.id, name: user.name, phone: user.phone, shop_name: user.shop_name }
 }
 
+// Associate the current Firebase account with this browser's local shop data.
+// If this device already has an offline account for the same phone number,
+// keep its existing local ID so those offline records remain reachable.
+export function localBindCloudUser(user) {
+  const users = getStore('users')
+  const existing = users.find(item => item.phone === user.phone)
+  const localId = existing?.id ?? user.id
+  const profile = { ...existing, ...user, id: localId, password: existing?.password || '' }
+  const index = users.findIndex(item => item.id === localId)
+  if (index >= 0) users[index] = profile
+  else users.push(profile)
+  setStore('users', users)
+  setStore('current_user_id', localId)
+  return profile
+}
+
+export async function localSetProductPhoto(id, dataUrl) {
+  try {
+    localStorage.setItem(`kirana_photo_${userId()}_${id}`, dataUrl)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function localGetProductPhoto(id) {
+  try {
+    return localStorage.getItem(`kirana_photo_${userId()}_${id}`) || ''
+  } catch {
+    return ''
+  }
+}
+
 export function localUserUpdate(data) {
   const users = getStore('users')
   const index = users.findIndex(user => user.id === userId())

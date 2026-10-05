@@ -22,6 +22,20 @@ soon as the shell opens, uses an 8-second request timeout, and falls back to
 its offline local store while the service is waking up. No paid API or
 monitoring service is required.
 
+## 🔥 Firebase Spark migration (staged)
+
+Firebase Authentication and Cloud Firestore are prepared as a parallel
+backend, and the existing shop data has been imported and checked against a
+private Render snapshot. The live app continues to use Render until existing
+account sign-in and signed-in workflows are verified. Render/PostgreSQL remain
+available as the rollback source during this stage.
+
+Firebase Spark does not include Cloud Storage for product photos. The 27
+existing image records remain preserved in the legacy database and private
+snapshot; photos do not sync between devices in the Spark configuration. See
+[the Firebase migration guide](docs/FIREBASE-SPARK-MIGRATION.md) for status,
+verification steps, and cutover boundaries.
+
 ## ✨ Features
 
 - **Digital Khata** — Customer credit management with timeline view
@@ -53,8 +67,8 @@ monitoring service is required.
 ### Option 1: Docker (Recommended for local)
 
 ```bash
-git clone https://github.com/harmless-beep/kirana-smart-assistant.git
-cd kirana-smart-assistant
+git clone https://github.com/harmless-beep/kirana-smart-assistant-v2.git
+cd kirana-smart-assistant-v2
 docker-compose up
 ```
 
@@ -157,9 +171,9 @@ local offline fallback when the backend is asleep or unavailable.
 
 ### Frontend → GitHub Pages (current method)
 
-The repo includes `.github/workflows/deploy.yml`, which builds the frontend and publishes it to GitHub Pages on every push to `master`. The workflow sets `VITE_API_URL` to the Render backend automatically.
+The repo includes `.github/workflows/deploy.yml`, which builds the frontend and publishes it to GitHub Pages on every push to `main`. The workflow defaults to the Render backend; Firebase remains opt-in until existing-account sign-in and production smoke checks pass.
 
-1. Push to the `master` branch.
+1. Push to the `main` branch.
 2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. Wait for the "Deploy to GitHub Pages" workflow run (~40s).
 4. Live at `https://<user>.github.io/kirana-smart-assistant-v2/`.

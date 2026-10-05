@@ -233,13 +233,16 @@ export default function ProductForm() {
       }
       const response = isEdit ? await api.products.update(id, data) : await api.products.create(data)
       const productId = response.data?.id
+      let devicePhotoSaved = true
       // If the photo couldn't upload (cold Render start), queue it so it
-      // is pushed in the background once the backend is warm.
+      // is pushed in the background once the backend is warm, or stored on
+      // this device when Firebase Spark has no Cloud Storage.
       if (imageBlocked && productId && form._imageFile) {
-        api.queueDeferredUpload(productId, form._imageFile)
+        const result = await api.queueDeferredUpload(productId, form._imageFile)
+        if (api.firebaseMode) devicePhotoSaved = result !== false
       }
       setSuccess(imageBlocked
-        ? t('productSavedPhotoUploading')
+        ? (api.firebaseMode ? (devicePhotoSaved ? t('productPhotoDeviceOnly') : t('productSavedWithoutPhoto')) : t('productSavedPhotoUploading'))
         : (response.data?.imageStorageWarning ? t('productSavedWithoutPhoto') : (isEdit ? t('productUpdated') : t('productAdded'))))
       setTimeout(() => navigate('/products'), 800)
     } catch (err) {
