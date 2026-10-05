@@ -13,23 +13,20 @@ DATABASE_URL = os.getenv(
 
 # SQLite needs special connect args; PostgreSQL does not
 connect_args = {}
-engine_kwargs = {
-    "pool_pre_ping": True,
-}
 
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 else:
     # Supabase / pooler connections use SSL
-    engine_kwargs["connect_args"] = {"sslmode": "require"}
+    connect_args["sslmode"] = "require"
     # Render's built-in Postgres also uses SSL
     if ":5432" in DATABASE_URL and "supabase" not in DATABASE_URL:
-        engine_kwargs["connect_args"] = {}
+        connect_args.clear()
 
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
-    **engine_kwargs,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
