@@ -14,30 +14,27 @@ The project is fully deployed and running end-to-end:
 | **Backend API** | https://kirana-smart-assistant.onrender.com |
 | **API Docs (Swagger UI)** | https://kirana-smart-assistant.onrender.com/docs |
 
-> ⚠️ The backend runs on Render's **free tier**, so the first request after a period of inactivity can take ~30–50s (cold start). The frontend is built to automatically retry, so just wait a moment on first load.
+> ⚠️ Shop data and sign-in on the V2 Pages site run on Firebase. Render's free service is used for shared product photos, so the first photo upload or read after inactivity can still take ~30–50s.
 
-The free tier cannot be kept permanently awake without paying for hosting. To
-make that delay less visible, the app now wakes the API in the background as
-soon as the shell opens, uses an 8-second request timeout, and falls back to
-its offline local store while the service is waking up. No paid API or
-monitoring service is required.
+Render's free service can sleep. The Firebase hybrid avoids waking it during
+ordinary shop operations; only shared photo uploads and reads use Render.
+Render/PostgreSQL remains available as a rollback source.
 
-## 🔥 Firebase Spark migration (staged)
+## 🔥 Firebase Spark hybrid
 
-Firebase Authentication and Cloud Firestore are prepared as a parallel
-backend, and the existing shop data has been imported and checked against a
-private Render snapshot. The live app continues to use Render until existing
-account sign-in and signed-in workflows are verified. Render/PostgreSQL remain
-available as the rollback source during this stage.
+The V2 GitHub Pages site now uses Firebase Authentication and Cloud Firestore
+for sign-in and shop data. Existing shop data and accounts were imported and
+checked against a private Render snapshot. Existing-account sign-in and the
+signed-in production workflows still need a shop-owner smoke check. Render and
+PostgreSQL remain available as the rollback source.
 
 The planned hybrid keeps shop data and sign-in on Firebase while product photo
 bytes stay in Render's existing image store. Firebase product records hold the
 shared Render photo URL, so signed-in devices can display the same picture.
-Render may still take time to wake when someone uploads or opens a photo; normal
-shop operations won't call Render after the Firebase cutover. The photo bridge
-is staged and still needs Render deployment plus cross-device verification.
-See [the Firebase migration guide](docs/FIREBASE-SPARK-MIGRATION.md) for
-status, verification steps, and cutover boundaries.
+Render may take time to wake when someone uploads or opens a photo; normal shop
+operations use Firebase. The photo bridge is deployed to the existing Render
+service. See [the Firebase migration guide](docs/FIREBASE-SPARK-MIGRATION.md)
+for verification steps and remaining smoke checks.
 
 ## ✨ Features
 

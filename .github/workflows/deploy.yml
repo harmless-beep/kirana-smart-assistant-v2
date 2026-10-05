@@ -34,8 +34,8 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          # Keep the repository variable at "render" until Firebase has
-          # passed migration, security, and production smoke checks.
+          # Set this repository variable to "firebase" after migration and
+          # security checks; forks without it continue using Render.
           VITE_BACKEND_MODE: ${{ vars.VITE_BACKEND_MODE || 'render' }}
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://kirana-smart-assistant.onrender.com' }}
           VITE_IMAGE_API_URL: ${{ vars.VITE_IMAGE_API_URL || vars.VITE_API_URL || 'https://kirana-smart-assistant.onrender.com' }}

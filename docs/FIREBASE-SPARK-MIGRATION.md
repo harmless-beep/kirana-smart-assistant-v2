@@ -20,16 +20,18 @@ prepared in this branch. A Firebase Spark project (`kirana-smart-assistant`)
 and the `Kirana Smart PWA` web app now exist. Email/Password Authentication is
 enabled; the existing GitHub Pages host is authorised; and the default Standard
 Cloud Firestore database is provisioned in `asia-south2` (Delhi) in production
-mode. The repository's owner-scoped Firestore rules are published. The local
-ignored `frontend/.env.local` points at this project for Firebase-mode builds.
-The ordinary GitHub Pages workflow still defaults to Render. The original
-Render service and PostgreSQL database remain active and unchanged.
+mode. The repository's owner-scoped Firestore rules are published. The V2
+GitHub Pages workflow now builds with Firebase Authentication and Firestore
+enabled; its Firebase client configuration is supplied through repository
+Actions variables. The workflow falls back to Render mode when that variable
+is absent. The existing Render service URL and PostgreSQL database remain
+active.
 
-This branch now contains a hybrid photo bridge: Firebase ID tokens can be
-verified by the Render photo-upload route, while product records in Firestore
-store the shared Render image URL. The Render backend must deploy this route
-change before Firebase-mode photo uploads can work. Photo reads remain public
-by URL as in the current API, and continue to be served from PostgreSQL.
+The hybrid photo bridge is deployed on the existing Render service from V2
+`main`: Firebase ID tokens are verified only on the photo-upload route, while
+product records in Firestore store the shared Render image URL. Render
+continues to serve photos from PostgreSQL, with the existing public-by-URL
+read behavior.
 
 The real Render PostgreSQL snapshot was captured privately in Windows Temp,
 validated against its checksum, and imported into Firestore and Firebase Auth.
@@ -44,10 +46,12 @@ The live Firebase rules denied an unauthenticated profile
 read. The emulator rules suite passed with a temporary JDK 21 and all 24
 dependency-free snapshot tests pass. The Firebase-mode production build passes;
 lint reports three pre-existing warnings and Vite reports a large-bundle
-warning. Live sign-in with an existing password and interactive shop workflow
-tests remain outstanding because no shop password was supplied. GitHub Pages
-still defaults to Render; no public cutover has been made. Do not cut over until
-existing-account login and isolated workflow checks pass. The one-time service
+warning. GitHub Pages now loads the Firebase login screen. Live sign-in with an
+existing password and interactive shop workflow tests remain outstanding; the
+shop owner must complete the login check. Until it passes, pause production
+transactions so the old Render copy remains a clean rollback point. If
+verification fails, set the V2 repository variable `VITE_BACKEND_MODE` back to
+`render` and redeploy Pages. The one-time service
 account key has been removed from Windows Temp, its project role grants have
 been revoked, and the clipboard was cleared. The private snapshot and checksum
 remain in Windows Temp as the local migration backup.
