@@ -30,11 +30,14 @@ private Render snapshot. The live app continues to use Render until existing
 account sign-in and signed-in workflows are verified. Render/PostgreSQL remain
 available as the rollback source during this stage.
 
-Firebase Spark does not include Cloud Storage for product photos. The 27
-existing image records remain preserved in the legacy database and private
-snapshot; photos do not sync between devices in the Spark configuration. See
-[the Firebase migration guide](docs/FIREBASE-SPARK-MIGRATION.md) for status,
-verification steps, and cutover boundaries.
+The planned hybrid keeps shop data and sign-in on Firebase while product photo
+bytes stay in Render's existing image store. Firebase product records hold the
+shared Render photo URL, so signed-in devices can display the same picture.
+Render may still take time to wake when someone uploads or opens a photo; normal
+shop operations won't call Render after the Firebase cutover. The photo bridge
+is staged and still needs Render deployment plus cross-device verification.
+See [the Firebase migration guide](docs/FIREBASE-SPARK-MIGRATION.md) for
+status, verification steps, and cutover boundaries.
 
 ## ✨ Features
 

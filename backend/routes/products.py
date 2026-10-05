@@ -4,11 +4,16 @@ Full CRUD with search, low-stock alerts, and expiry tracking.
 """
 
 from datetime import date, timedelta
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from google.auth.exceptions import GoogleAuthError, TransportError
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2 import id_token
 
 from database import get_db
 from models.models import Product, ProductImage, User
@@ -16,6 +21,10 @@ from schemas.schemas import ProductCreate, ProductRead, ProductUpdate
 from routes.auth import get_current_user_dep
 
 router = APIRouter()
+
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "kirana-smart-assistant")
+_photo_bearer = HTTPBearer(auto_error=False)
+_google_auth_request = GoogleAuthRequest()
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 IMAGE_EXTENSIONS = {
@@ -25,11 +34,58 @@ IMAGE_EXTENSIONS = {
 }
 
 
+def verify_firebase_photo_token(token: str) -> dict:
+    """Verify a Firebase client ID token without service-account credentials."""
+    try:
+        claims = id_token.verify_firebase_token(
+            token,
+            _google_auth_request,
+            audience=FIREBASE_PROJECT_ID,
+        )
+    except TransportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sign-in could not be verified right now. Please retry the photo upload.",
+        ) from exc
+    except (ValueError, GoogleAuthError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    if not claims.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return claims
+
+
+def get_photo_upload_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_photo_bearer),
+    db: Session = Depends(get_db),
+):
+    """Accept legacy Render sessions and verified Firebase sessions for uploads."""
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sign in to upload a product photo",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        return get_current_user_dep(credentials.credentials, db)
+    except (HTTPException, TypeError, ValueError):
+        return verify_firebase_photo_token(credentials.credentials)
+
+
 @router.post("/upload-image")
 async def upload_product_image(
     image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_dep),
+    _authenticated_user=Depends(get_photo_upload_user),
 ):
     """Store a camera/gallery image in the database and return a path the
     product form can save. Images live in the DB (not ephemeral disk), so

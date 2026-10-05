@@ -25,6 +25,12 @@ ignored `frontend/.env.local` points at this project for Firebase-mode builds.
 The ordinary GitHub Pages workflow still defaults to Render. The original
 Render service and PostgreSQL database remain active and unchanged.
 
+This branch now contains a hybrid photo bridge: Firebase ID tokens can be
+verified by the Render photo-upload route, while product records in Firestore
+store the shared Render image URL. The Render backend must deploy this route
+change before Firebase-mode photo uploads can work. Photo reads remain public
+by URL as in the current API, and continue to be served from PostgreSQL.
+
 The real Render PostgreSQL snapshot was captured privately in Windows Temp,
 validated against its checksum, and imported into Firestore and Firebase Auth.
 The importer's post-write verification passed for all six Auth identities,
@@ -32,8 +38,9 @@ exact document IDs/counts, stock totals, sales, profit, credits, and snapshot
 markers. The source had an empty legacy `kirana` table, which is explicitly
 checked by the exporter, and one ownerless sale; the owner approved assigning
 sale #1 to account 4. All 27 product-image rows remain preserved in the source
-database and private snapshot; Spark Storage is unavailable, so those photos do
-not sync to Firebase. The live Firebase rules denied an unauthenticated profile
+database and private snapshot. Spark Storage is unavailable; the hybrid bridge
+keeps image bytes in Render and lets signed-in Firebase clients upload there.
+The live Firebase rules denied an unauthenticated profile
 read. The emulator rules suite passed with a temporary JDK 21 and all 24
 dependency-free snapshot tests pass. The Firebase-mode production build passes;
 lint reports three pre-existing warnings and Vite reports a large-bundle
@@ -51,10 +58,12 @@ Spark needs no payment details for Spark-compatible products. Cloud Firestore
 has a free quota of 1 GiB stored, 50,000 document reads/day, 20,000 writes/day,
 20,000 deletes/day, and 10 GiB monthly egress. These are project-wide quotas.
 Firebase Cloud Functions and Cloud Storage require Blaze, so this migration
-must not depend on them. Product pictures remain device-local in the PWA; the
-current PostgreSQL copy stays preserved in the legacy database/export but
-cannot be fetched from Firebase on Spark. Existing non-image shop data moves
-to Firestore.
+does not depend on them. Shop data and sign-in move to Firebase. Product photo
+bytes stay in Render's existing `product_images` table; Firestore stores their
+shared image URLs. Firebase ID tokens are verified by the Render upload route,
+so photo uploads don't require a Render login or service-account key. Opening
+or uploading a photo can still wake Render, but normal shop operations won't
+call it after Firebase cutover. Photos are online-only in this hybrid design.
 
 ## Target data layout
 
@@ -128,8 +137,9 @@ accounts. New signups use the same phone-to-internal-email mapping.
   stale local data after a Firebase failure.
 - Port product/category/customer/khata/sales/dashboard/notification/settings,
   barcode lookup, and client-side PDF/Excel export behavior.
-- Replace API-hosted product photo uploads with device-local pictures and a
-  clear note that photos do not sync on Spark.
+- Keep photo bytes in Render's existing image table while Firebase product
+  documents store the shared photo URL. Verify Firebase ID tokens only on the
+  photo-upload route; don't send Firebase tokens to other legacy API routes.
 
 ### 3. Prepare and validate a private migration snapshot
 
@@ -158,7 +168,10 @@ accounts. New signups use the same phone-to-internal-email mapping.
 - Complete cash and credit sales; verify stock, sale snapshots, and balances.
 - Add a credit/payment; verify outstanding balances and dashboard totals.
 - Check reports, PDF/Excel downloads, low-stock/expiry/overdue alerts, barcode
-  search/generation, settings, and product images on-device.
+  search/generation, settings, and shared product photos from a second device.
+- Confirm unauthenticated photo uploads are denied, valid Firebase ID tokens
+  can upload, and Render is contacted only for photo upload/read requests in
+  Firebase mode.
 - Run `npm run test:rules` from `frontend`; the emulator suite checks owner
   isolation, unauthenticated denial, protected profile identity/role, valid
   phone and inventory changes, cross-shop writes, and invalid sales/stock.
@@ -217,10 +230,10 @@ accounts. New signups use the same phone-to-internal-email mapping.
 The migration is complete only when the old database remains recoverable, all
 non-image data and accounts pass parity checks, major workflows pass on the
 Firebase path, security rules pass cross-account denial checks, offline/PWA
-behavior is verified, the production frontend no longer calls Render for
-normal app operations, and rollback has been demonstrated. Product image
-bytes remain preserved in the old database/export; syncing those images would
-require Blaze or another storage provider.
+behavior is verified, the production frontend uses Firebase for normal shop
+operations and Render only for shared photos, and rollback has been
+demonstrated. Photo bytes remain in Render and in the private export; no
+Firebase Storage billing is required.
 
 ## References
 

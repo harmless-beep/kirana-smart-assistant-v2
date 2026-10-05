@@ -22,12 +22,12 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore'
+import axios from 'axios'
 import JsBarcode from 'jsbarcode'
 import { firebaseAuth, firestore } from '../firebase'
 import {
   localBindCloudUser,
   localGetProductPhoto,
-  localSetProductPhoto,
   localCategories,
   localProductGet,
   localProducts,
@@ -49,6 +49,58 @@ const dateToday = () => new Date().toISOString().slice(0, 10)
 const errorResponse = (status, detail) => Object.assign(new Error(detail), {
   response: { status, data: { detail } },
 })
+const RENDER_IMAGE_API_URL = (
+  import.meta.env.VITE_IMAGE_API_URL ||
+  import.meta.env.VITE_API_URL ||
+  'https://kirana-smart-assistant.onrender.com'
+).replace(/\/+$/, '')
+
+function resolveSharedPhotoUrl(path) {
+  if (!path || /^(data:|blob:|https?:\/\/)/i.test(path)) return path || ''
+  return new URL(path, `${RENDER_IMAGE_API_URL}/`).href
+}
+
+async function uploadSharedPhoto(file) {
+  const user = requireUser()
+  if (!file) throw errorResponse(400, 'Choose a product photo first')
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw errorResponse(400, 'Please upload a JPG, PNG, or WebP image')
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw errorResponse(413, 'Image must be 5 MB or smaller')
+  }
+
+  const formData = new FormData()
+  formData.append('image', file)
+  try {
+    // Allow Render's free service enough time to wake when a photo is uploaded.
+    const response = await axios.post(
+      `${RENDER_IMAGE_API_URL}/api/products/upload-image`,
+      formData,
+      {
+        timeout: 70000,
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+      },
+    )
+    const imagePath = response.data?.image_path
+    if (!imagePath) throw errorResponse(502, 'The photo service returned no image URL')
+    return wrap({
+      image: resolveSharedPhotoUrl(imagePath),
+      image_path: imagePath,
+      storageWarning: false,
+      shared: true,
+    })
+  } catch (error) {
+    if (error.response?.data?.detail) throw error
+    if (error.code === 'ECONNABORTED') {
+      throw errorResponse(504, 'The photo server is taking too long to wake. Try the photo again in a moment.')
+    }
+    if (!error.response) {
+      throw errorResponse(503, 'The photo server is unavailable. Your shop data can still be saved; retry the photo later.')
+    }
+    throw error
+  }
+}
 
 let authReady
 function waitForAuth() {
@@ -157,7 +209,7 @@ async function displayProduct(product) {
     shelf: product.shelf ?? product.shelf_number ?? '',
     lowStockLimit: product.lowStockLimit ?? product.low_stock_limit ?? product.low_stock ?? 5,
     expiryDate: product.expiryDate ?? product.expiry_date ?? '',
-    image: localImage || product.image || product.image_path || '',
+    image: resolveSharedPhotoUrl(product.image || product.image_path || localImage || ''),
     description: product.description || '',
   }
 }
@@ -378,13 +430,7 @@ const productsApi = {
     return wrap(await displayProduct(product))
   },
   uploadImage: async file => {
-    const image = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = () => reject(errorResponse(400, 'Could not read the selected image'))
-      reader.readAsDataURL(file)
-    })
-    return wrap({ image, image_path: image, storageWarning: true, deviceOnly: true })
+    return uploadSharedPhoto(file)
   },
   update: async (id, data) => {
     const user = requireUser()
@@ -780,14 +826,18 @@ function barcodeSvg(value) {
 }
 
 export async function queueFirebaseProductPhoto(productId, file) {
-  if (!productId || !file) return
-  const photo = await new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-  return localSetProductPhoto(productId, photo)
+  if (!productId || !file) return false
+  try {
+    const user = requireUser()
+    const uploaded = await uploadSharedPhoto(file)
+    await updateDoc(shopDoc('products', productId, user), {
+      image_path: uploaded.data.image_path,
+      updated_at: new Date().toISOString(),
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function firebasePendingPhotoCount() { return 0 }

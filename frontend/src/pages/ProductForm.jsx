@@ -127,16 +127,20 @@ export default function ProductForm() {
       setError(t('imageFileRequired'))
       return
     }
-    // Stash the raw file so a deferred upload can retry after a cold start.
+    // Retain the selected file while the shared photo upload is in progress.
     updateForm('_imageFile', file)
+    updateForm('_imageUploadFailed', false)
 
     setUploadingImage(true)
     setError('')
     try {
       const optimized = await compressImage(file)
       const response = await api.products.uploadImage(optimized)
-      updateForm('image', response.data.image || response.data.image_path)
+      const uploadedImage = response.data.image || response.data.image_path || ''
+      updateForm('image', uploadedImage)
+      updateForm('_imageUploadFailed', Boolean(response.data.storageWarning || !uploadedImage))
     } catch (err) {
+      updateForm('_imageUploadFailed', true)
       setError(err.response?.data?.detail || t('imageUploadFailed'))
     } finally {
       setUploadingImage(false)
@@ -233,17 +237,23 @@ export default function ProductForm() {
       }
       const response = isEdit ? await api.products.update(id, data) : await api.products.create(data)
       const productId = response.data?.id
-      let devicePhotoSaved = true
-      // If the photo couldn't upload (cold Render start), queue it so it
-      // is pushed in the background once the backend is warm, or stored on
-      // this device when Firebase Spark has no Cloud Storage.
+      const photoUploadFailed = Boolean(form._imageUploadFailed)
+      let deferredPhotoUploaded = !(imageBlocked && api.firebaseMode)
+      // Legacy local data URLs are never stored in Firestore; push the image
+      // to the shared Render photo store and then attach its URL to the product.
       if (imageBlocked && productId && form._imageFile) {
         const result = await api.queueDeferredUpload(productId, form._imageFile)
-        if (api.firebaseMode) devicePhotoSaved = result !== false
+        if (api.firebaseMode) deferredPhotoUploaded = result !== false
       }
       setSuccess(imageBlocked
-        ? (api.firebaseMode ? (devicePhotoSaved ? t('productPhotoDeviceOnly') : t('productSavedWithoutPhoto')) : t('productSavedPhotoUploading'))
-        : (response.data?.imageStorageWarning ? t('productSavedWithoutPhoto') : (isEdit ? t('productUpdated') : t('productAdded'))))
+        ? (api.firebaseMode
+          ? (deferredPhotoUploaded ? (isEdit ? t('productUpdated') : t('productAdded')) : t('productSavedPhotoFailed'))
+          : t('productSavedPhotoUploading'))
+        : (photoUploadFailed
+          ? t('productSavedPhotoFailed')
+          : response.data?.imageStorageWarning
+            ? t('productSavedWithoutPhoto')
+            : (isEdit ? t('productUpdated') : t('productAdded'))))
       setTimeout(() => navigate('/products'), 800)
     } catch (err) {
       setError(err.response?.data?.detail || err.response?.data?.message || t('failedToSaveProduct'))

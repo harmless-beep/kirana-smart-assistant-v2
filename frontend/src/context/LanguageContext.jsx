@@ -257,6 +257,7 @@ const translations = {
     sectionSaveFailed: 'Could not save the section',
     productSavedWithoutPhoto: 'Product saved. This device has no room to keep the photo.',
     productSavedPhotoUploading: 'Product saved. Photo will appear shortly once the server wakes up.',
+    productSavedPhotoFailed: 'Product saved, but its photo did not upload. Try adding the photo again when the server is available.',
     productPhotoDeviceOnly: 'Product saved. Its photo is available only on this device.',
   },
   ne: {
@@ -513,6 +514,7 @@ const translations = {
     sectionSaveFailed: '\\u0938\\u0947\\u0915\\u094d\\u0938\\u0928 \\u0938\\u0947\\u092d \\u0939\\u0941\\u0928 \\u0938\\u0915\\u0947\\u0928',
     productSavedWithoutPhoto: 'सामान सेभ भयो। यस यन्त्रमा फोटो राख्ने ठाउँ छैन।',
     productSavedPhotoUploading: 'सामान सेभ भयो। सर्भर ब्युँतिएपछि फोटो थोरै पछि देखिनेछ।',
+    productSavedPhotoFailed: 'सामान सेभ भयो, तर फोटो अपलोड भएन। सर्भर उपलब्ध भएपछि फोटो फेरि थप्नुहोस्।',
     productPhotoDeviceOnly: 'सामान सेभ भयो। यसको फोटो यही यन्त्रमा मात्र देखिन्छ।',
   }
 }
